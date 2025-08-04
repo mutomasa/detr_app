@@ -91,10 +91,6 @@ class DETRApp:
     
     def __init__(self):
         """Initialize the application"""
-        self.model_manager = DETRModelManager()
-        self.visualizer = DETRVisualizer()
-        self.sample_manager = SampleImageManager()
-        
         # Initialize session state
         if 'model_loaded' not in st.session_state:
             st.session_state.model_loaded = False
@@ -106,6 +102,16 @@ class DETRApp:
             st.session_state.attention_maps = None
         if 'query_analysis' not in st.session_state:
             st.session_state.query_analysis = None
+        if 'model_manager' not in st.session_state:
+            st.session_state.model_manager = DETRModelManager()
+        
+        # Use session state for model manager
+        self.model_manager = st.session_state.model_manager
+        self.visualizer = DETRVisualizer()
+        self.sample_manager = SampleImageManager()
+        
+        # Note: Model will be loaded manually via sidebar button
+        # Auto-loading is disabled to prevent errors during initialization
     
     def run(self):
         """Run the application"""
@@ -164,31 +170,57 @@ class DETRApp:
         )
         
         # Load model button
-        if st.sidebar.button("モデルを読み込み", type="primary"):
-            with st.spinner("DETRモデルを読み込み中..."):
-                # Update model manager configuration
-                self.model_manager.model_name = selected_model
-                self.model_manager.task = selected_task
-                
-                # Load model
-                success = self.model_manager.load_model()
-                if success:
-                    st.session_state.model_loaded = True
-                    st.sidebar.success("✅ モデル読み込み完了")
-                else:
-                    st.sidebar.error("❌ モデル読み込みに失敗しました")
-        
-        # Model status
-        if st.session_state.model_loaded:
+        if not st.session_state.model_loaded:
+            if st.sidebar.button("モデルを読み込み", type="primary"):
+                with st.spinner("DETRモデルを読み込み中..."):
+                    try:
+                        # Update model manager configuration
+                        self.model_manager.model_name = selected_model
+                        self.model_manager.task = selected_task
+                        
+                        # Load model
+                        success = self.model_manager.load_model()
+                        if success:
+                            st.session_state.model_loaded = True
+                            st.sidebar.success("✅ モデル読み込み完了")
+                        else:
+                            st.sidebar.error("❌ モデル読み込みに失敗しました")
+                    except Exception as e:
+                        st.sidebar.error(f"❌ モデル読み込みエラー: {str(e)}")
+                        st.sidebar.error("詳細はターミナルログを確認してください")
+        else:
             st.sidebar.success("✅ モデル読み込み済み")
-            
-            # Model info
-            model_info = self.model_manager.get_model_info()
-            st.sidebar.subheader("📊 モデル情報")
-            st.sidebar.write(f"**モデル:** {model_info['model_name']}")
-            st.sidebar.write(f"**タスク:** {model_info['task']}")
-            st.sidebar.write(f"**デバイス:** {model_info['device']}")
-            st.sidebar.write(f"**パラメータ数:** {model_info['total_parameters']:,}")
+            if st.sidebar.button("モデルを再読み込み"):
+                with st.spinner("DETRモデルを再読み込み中..."):
+                    try:
+                        # Update model manager configuration
+                        self.model_manager.model_name = selected_model
+                        self.model_manager.task = selected_task
+                        
+                        # Load model
+                        success = self.model_manager.load_model()
+                        if success:
+                            st.sidebar.success("✅ モデル再読み込み完了")
+                        else:
+                            st.sidebar.error("❌ モデル再読み込みに失敗しました")
+                    except Exception as e:
+                        st.sidebar.error(f"❌ モデル再読み込みエラー: {str(e)}")
+                        st.sidebar.error("詳細はターミナルログを確認してください")
+        
+        # Model info
+        if st.session_state.model_loaded:
+            try:
+                model_info = self.model_manager.get_model_info()
+                if "error" not in model_info:
+                    st.sidebar.subheader("📊 モデル情報")
+                    st.sidebar.write(f"**モデル:** {model_info.get('model_name', 'Unknown')}")
+                    st.sidebar.write(f"**タスク:** {model_info.get('task', 'Unknown')}")
+                    st.sidebar.write(f"**デバイス:** {model_info.get('device', 'Unknown')}")
+                    st.sidebar.write(f"**パラメータ数:** {model_info.get('total_parameters', 0):,}")
+                else:
+                    st.sidebar.error(f"❌ モデル情報の取得に失敗: {model_info['error']}")
+            except Exception as e:
+                st.sidebar.error(f"❌ モデル情報の取得に失敗: {str(e)}")
         else:
             st.sidebar.warning("⚠️ モデルが読み込まれていません")
         
@@ -288,7 +320,7 @@ class DETRApp:
         
         with col1:
             st.subheader("📸 入力画像")
-            st.image(st.session_state.current_image, caption="入力画像", use_column_width=True)
+            st.image(st.session_state.current_image, caption="入力画像", use_container_width=True)
             
             # Image info
             image_info = self.sample_manager.get_image_info(st.session_state.current_image)
@@ -561,22 +593,28 @@ class DETRApp:
         # Model configuration
         if st.session_state.model_loaded:
             st.subheader("⚙️ モデル設定")
-            model_info = self.model_manager.get_model_info()
-            config = model_info["model_config"]
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.write("**基本設定:**")
-                st.write(f"• クエリ数: {config['num_queries']}")
-                st.write(f"• 隠れ層サイズ: {config['hidden_size']}")
-                st.write(f"• クラス数: {config['num_labels']}")
-            
-            with col2:
-                st.write("**Transformer設定:**")
-                st.write(f"• エンコーダー層数: {config['num_encoder_layers']}")
-                st.write(f"• デコーダー層数: {config['num_decoder_layers']}")
-                st.write(f"• アテンションヘッド数: {config['num_attention_heads']}")
+            try:
+                model_info = self.model_manager.get_model_info()
+                if "error" not in model_info and "model_config" in model_info:
+                    config = model_info["model_config"]
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.write("**基本設定:**")
+                        st.write(f"• クエリ数: {config.get('num_queries', 'Unknown')}")
+                        st.write(f"• 隠れ層サイズ: {config.get('hidden_size', 'Unknown')}")
+                        st.write(f"• クラス数: {config.get('num_labels', 'Unknown')}")
+                    
+                    with col2:
+                        st.write("**Transformer設定:**")
+                        st.write(f"• エンコーダー層数: {config.get('num_encoder_layers', 'Unknown')}")
+                        st.write(f"• デコーダー層数: {config.get('num_decoder_layers', 'Unknown')}")
+                        st.write(f"• アテンションヘッド数: {config.get('num_attention_heads', 'Unknown')}")
+                else:
+                    st.error(f"❌ モデル設定の取得に失敗: {model_info.get('error', 'Unknown error')}")
+            except Exception as e:
+                st.error(f"❌ モデル設定の取得に失敗: {str(e)}")
     
     def _display_internal_state_tab(self):
         """Display internal state tab"""
@@ -673,8 +711,12 @@ class DETRApp:
         
         # Model information
         st.subheader("🤖 モデル情報")
-        model_info = self.model_manager.get_model_info()
-        st.json(model_info)
+        try:
+            model_info = self.model_manager.get_model_info()
+            st.json(model_info)
+        except Exception as e:
+            st.error(f"❌ モデル情報の取得に失敗: {str(e)}")
+            st.json({"error": str(e)})
         
         # System information
         st.subheader("💻 システム情報")

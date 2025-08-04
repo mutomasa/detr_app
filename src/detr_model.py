@@ -77,9 +77,12 @@ class DETRModelManager:
             print(f"Device: {self.device}")
             
             # Load processor
+            print("Loading processor...")
             self.processor = DetrImageProcessor.from_pretrained(self.model_name)
+            print("Processor loaded successfully")
             
             # Load model based on task
+            print(f"Loading model for task: {self.task}")
             if self.task == "object-detection":
                 self.model = DetrForObjectDetection.from_pretrained(self.model_name)
             elif self.task == "segmentation":
@@ -87,7 +90,10 @@ class DETRModelManager:
             else:
                 raise ValueError(f"Unsupported task: {self.task}")
             
+            print("Model loaded successfully")
+            
             # Move to device
+            print(f"Moving model to device: {self.device}")
             self.model.to(self.device)
             self.model.eval()
             
@@ -95,10 +101,14 @@ class DETRModelManager:
             self.config = self.model.config
             
             print(f"DETR model loaded successfully on {self.device}")
+            print(f"Model type: {type(self.model)}")
+            print(f"Model is None: {self.model is None}")
             return True
             
         except Exception as e:
             print(f"Error loading DETR model: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def get_model_info(self) -> Dict[str, Any]:
@@ -107,31 +117,47 @@ class DETRModelManager:
         Returns:
             Dict[str, Any]: Model information
         """
+        print(f"get_model_info called")
+        print(f"self.model is None: {self.model is None}")
+        print(f"self.model type: {type(self.model)}")
+        print(f"self.config is None: {self.config is None}")
+        
         if self.model is None:
+            print("Model is None, returning error")
             return {"error": "Model not loaded"}
         
-        # Count parameters
-        total_params = sum(p.numel() for p in self.model.parameters())
-        trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        if self.config is None:
+            print("Config is None, returning error")
+            return {"error": "Model config not loaded"}
         
-        return {
-            "model_name": self.model_name,
-            "task": self.task,
-            "device": self.device,
-            "total_parameters": total_params,
-            "trainable_parameters": trainable_params,
-            "config": self.model_config,
-            "model_config": {
-                "num_queries": self.config.num_queries,
-                "hidden_size": self.config.hidden_size,
-                "num_encoder_layers": self.config.num_encoder_layers,
-                "num_decoder_layers": self.config.num_decoder_layers,
-                "num_attention_heads": self.config.num_attention_heads,
-                "intermediate_size": self.config.intermediate_size,
-                "dropout": self.config.dropout,
-                "num_labels": self.config.num_labels,
+        try:
+            # Count parameters
+            total_params = sum(p.numel() for p in self.model.parameters())
+            trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+            
+            return {
+                "model_name": self.model_name,
+                "task": self.task,
+                "device": self.device,
+                "total_parameters": total_params,
+                "trainable_parameters": trainable_params,
+                "config": self.model_config,
+                "model_config": {
+                    "num_queries": self.config.num_queries,
+                    "hidden_size": self.config.hidden_size,
+                    "num_encoder_layers": self.config.encoder_layers,
+                    "num_decoder_layers": self.config.decoder_layers,
+                    "num_attention_heads": self.config.num_attention_heads,
+                    "intermediate_size": self.config.encoder_ffn_dim,
+                    "dropout": self.config.dropout,
+                    "num_labels": self.config.num_labels,
+                }
             }
-        }
+        except Exception as e:
+            print(f"Error in get_model_info: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {"error": f"Error getting model info: {str(e)}"}
     
     def detect_objects(self, image: Image.Image, confidence_threshold: float = 0.5) -> Dict[str, Any]:
         """Detect objects in image
