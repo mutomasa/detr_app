@@ -243,7 +243,7 @@ L = λ_cls * L_cls + λ_box * L_box
 
 ## 🔄 更新履歴
 
-### v0.1.0 (2024-08-04)
+### v0.1.0 (2025-08-04)
 - 初期リリース
 - DETRモデルの実装
 - 物体検知機能
@@ -269,9 +269,9 @@ L = λ_cls * L_cls + λ_box * L_box
 
 問題や質問がある場合は、以下までお問い合わせください：
 - GitHub Issues: [プロジェクトのIssuesページ](https://github.com/your-username/detr-app/issues)
-- Email: your-email@example.com
 
-## 🙏 謝辞
+
+##  謝辞
 
 - [DETR論文](https://arxiv.org/abs/2005.12872)の著者
 - [Hugging Face Transformers](https://huggingface.co/docs/transformers/model_doc/detr)開発チーム
